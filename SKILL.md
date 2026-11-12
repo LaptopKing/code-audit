@@ -191,7 +191,7 @@ block (e.g. what you skipped). The block's last line already lists what the user
 
 ## Automatic runs (Stop hook)
 
-A global Stop hook runs `scripts/audit_gate.py` after each final reply (~0.05 s, no tokens). It
+When installed with `install.py --hook`, a global Stop hook runs `scripts/audit_gate.py` after each final reply (~0.05 s, no tokens). It
 looks at the files Claude edited this session, maps each to a module (a role folder plus the folder
 under it, e.g. `backend/src/services/audio-mixing`), and asks Claude to audit a module when:
 - it was never audited (initial audit: always run it), or

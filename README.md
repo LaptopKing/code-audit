@@ -6,20 +6,45 @@ effect) and **security**.
 
 ## Install
 
+Needs `git` and Python 3.8+. The installer copies the skill into your agent's skills folder, so it
+works right away (restart the agent session). Linux, macOS and Windows.
+
 **One command**
 
 ```bash
-git clone https://github.com/LaptopKing/code-audit ~/projects/code-audit && ln -s ~/projects/code-audit ~/.claude/skills/code-audit
+git clone https://github.com/LaptopKing/code-audit && python3 code-audit/install.py
 ```
 
-**One prompt** (paste into Claude Code)
+Windows (PowerShell): `git clone https://github.com/LaptopKing/code-audit; python code-audit\install.py`
+
+**One prompt** (paste into Claude Code or any other agent)
 
 ```text
-Install the code-audit skill: clone https://github.com/LaptopKing/code-audit to ~/projects/code-audit and symlink it to ~/.claude/skills/code-audit.
+Install the code-audit skill: clone https://github.com/LaptopKing/code-audit and run its install.py
+with Python. Ask me first whether to add --hook for automatic audits.
 ```
 
-Update: `git -C ~/projects/code-audit pull`. Optional scanners for the security page:
-`uv tool install semgrep` · `brew install gitleaks osv-scanner`.
+**Options** (combine freely)
+
+| Add | Installs into |
+|-----|---------------|
+| nothing | Claude Code: `~/.claude/skills/code-audit` |
+| `--target agents` | Codex, Gemini CLI, OpenCode: `~/.agents/skills/code-audit` |
+| `--target claude agents` | both |
+| `--dir PATH` | any other harness: `PATH/code-audit` |
+| `--hook` | also auto-audits modules you changed a lot (Claude Code only, see below) |
+
+Update: `git -C code-audit pull` then run `install.py` again with the same options.
+Optional scanners for the security page: `uv tool install semgrep` · `brew install gitleaks osv-scanner`
+(Windows: `scoop install gitleaks osv-scanner`).
+
+**Automatic audits (`--hook`, optional)**
+
+Adds a Stop hook to `~/.claude/settings.json` (a `.bak` copy is kept). After each Claude Code reply
+it checks the modules Claude edited (~0.05 s, no tokens) and asks Claude to audit one in a background
+agent when it was never audited, or changed ≥150 lines since its last audit and Claude judges the
+change big. Status: `python3 ~/.claude/skills/code-audit/scripts/audit_gate.py --status`.
+Turn it off: remove the `audit_gate.py` entry under `hooks.Stop` (or use `/hooks`).
 
 ## Usage
 

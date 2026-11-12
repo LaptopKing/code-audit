@@ -30,6 +30,8 @@ GATE_DIR = Path(os.environ.get("CODE_AUDIT_GATE_DIR", Path.home() / ".cache" / "
 THRESHOLD = int(os.environ.get("CODE_AUDIT_THRESHOLD", "150"))
 # A never-audited module that Claude was asked about is asked again after this long.
 INITIAL_RETRY_S = 24 * 3600
+SKILL_DIR = Path(__file__).resolve().parent.parent.as_posix()
+PYTHON = "python" if os.name == "nt" else "python3"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 CONTAINERS = {w for _, words in KIND_WORDS for w in words} | {"modules", "packages", "apps", "features"}
 
@@ -148,9 +150,9 @@ several files. Renames, comments, formatting and small fixes are not big.
 For each module to audit, spawn ONE background Agent (subagent_type general-purpose, run_in_background
 true) with this prompt, filled in:
 "USE ONLY TOKEN-SAVING TOOLS per root CLAUDE.md - structural search before reading, scoped shell output.
-Follow ~/.claude/skills/code-audit/SKILL.md for scope <module> with the security tools on, and callers
+Follow {skill}/SKILL.md for scope <module> with the security tools on, and callers
 = sibling projects of the repo if any. Do the full judgement pass and write notes.json. Then run
-python3 ~/.claude/skills/code-audit/scripts/audit_gate.py --mark <module> and return ONLY the rendered
+{py} {skill}/scripts/audit_gate.py --mark <module> and return ONLY the rendered
 overview block, verbatim."
 Then reply with one line: "Auditing <module> in the background - the overview follows when it's done."
 When the agent reports back, reply with its overview block verbatim and nothing above it.
@@ -179,7 +181,7 @@ def hook():
             lines.append(f"{m.relative_to(root) if m != root else m} ({why})")
     if lines:
         save_state(state)
-        print(json.dumps({"decision": "block", "reason": REASON.format(lines="; ".join(lines))}))
+        print(json.dumps({"decision": "block", "reason": REASON.format(lines="; ".join(lines), skill=SKILL_DIR, py=PYTHON)}))
 
 
 def mark(module):
@@ -212,4 +214,7 @@ if __name__ == "__main__":
     elif sys.argv[1:2] == ["--status"]:
         status()
     else:
-        hook()
+        try:
+            hook()
+        except Exception:  # a hook must never break the session; the gate just skips this turn
+            pass
