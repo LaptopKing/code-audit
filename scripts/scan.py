@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from shape import shape_facts
@@ -498,9 +499,16 @@ def security_facts(root, scope, routes, use_tools, history):
     tools = {}
     tmp = Path(tempfile.mkdtemp(prefix="code-audit-"))
     if use_tools:
-        tools["gitleaks"] = run_gitleaks(scope, root, tmp, findings, history)
-        tools["semgrep"] = run_semgrep(scope, root, findings)
-        tools["osv-scanner"] = run_osv(scope, root, findings)
+        # The scanners are independent processes, so run them side by side. Each fills its own list;
+        # merging in the old order (gitleaks, semgrep, osv) keeps the dedup below picking the same hit.
+        found = {"gitleaks": [], "semgrep": [], "osv-scanner": []}
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            jobs = {"gitleaks": pool.submit(run_gitleaks, scope, root, tmp, found["gitleaks"], history),
+                    "semgrep": pool.submit(run_semgrep, scope, root, found["semgrep"]),
+                    "osv-scanner": pool.submit(run_osv, scope, root, found["osv-scanner"])}
+        for name, job in jobs.items():
+            tools[name] = job.result()
+            findings.extend(found[name])
         if tools["osv-scanner"] != "ran":
             tools["npm-audit"] = run_npm_audit(scope, root, findings)
     shutil.rmtree(tmp, ignore_errors=True)
